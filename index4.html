@@ -55,6 +55,7 @@
   <div class="tabs"><div class="tab on" data-v="main">Genel Harita</div><div class="tab" data-v="il">İl Detayı</div></div>
   <div class="spacer"></div>
   <div class="stat">Santral: <b id="kpiN">–</b></div><div class="stat">Toplam alan: <b id="kpiA">–</b></div><div class="stat">Ort. PVOUT: <b id="kpiP">–</b></div>
+  <div class="stat">Üretim: <b id="kpiE">–</b></div>
 </header>
 
 <!-- ===== GENEL HARITA ===== -->
@@ -71,8 +72,9 @@
     <button class="btn" id="resetBtn">Filtreleri sıfırla</button>
     <button class="btn alt" id="clearSel">Çizim seçimini temizle</button>
     <h2>İndir (seçili paneller)</h2>
-    <button class="btn alt" id="dlGeo">GeoJSON indir</button>
+    <button class="btn alt" id="dlGeo">GeoJSON indir (<span id="dlN">0</span>)</button>
     <button class="btn alt" id="dlShp">SHP (zip) indir</button>
+    <div class="ramplab" style="margin-top:4px"><span>Filtre/çizim ne süzüyorsa onu indirir; filtre yoksa tümü.</span></div>
     <h2>Santral listesi</h2>
     <div class="tablewrap"><table id="tbl"><thead><tr>
       <th data-k="id">ID</th><th data-k="source">Kaynak</th><th data-k="il">İl</th><th data-k="yr">Yıl</th><th data-k="area_ha">Alan (ha)</th><th data-k="mwh">MWh/yıl</th>
@@ -88,9 +90,23 @@
     </div>
     <h2>Güneş katmanı (PVOUT)</h2>
     <div class="ramp"></div><div class="ramplab"><span id="pvMin">düşük</span><span id="pvMax">yüksek</span></div>
+    <h2>Enerji formülü</h2>
+    <div class="chartbox" style="font-size:12px;line-height:1.6">
+      <div style="color:var(--gold);font-family:monospace">E = A × η(y₀) × PVOUT × GCR × f<sub>eskime</sub> × f<sub>toz</sub></div>
+      <div class="hint" style="color:var(--muted);font-size:11px;margin:6px 0">
+        A: panel arazi alanı (m²) · η(y₀): kuruluş yılındaki tipik modül verimi (2010 %14 → 2025 %22.3) ·
+        PVOUT: Global Solar Atlas yıllık özgül üretim (kWh/kWp) · GCR: modül/arazi kaplama oranı ·
+        f<sub>eskime</sub> = (1−LID) × (1−d)<sup>yaş−1</sup> · f<sub>toz</sub> = 1 − [t₀ + t₁×(AI+1)] (S5P aerosol indeksi)
+      </div>
+      <label>GCR (kaplama)</label><input id="pGCR" type="number" step="0.05" value="0.45"/>
+      <label>Yıllık eskime d (%)</label><input id="pD" type="number" step="0.1" value="0.5"/>
+      <label>İlk yıl kaybı LID (%)</label><input id="pLID" type="number" step="0.5" value="2"/>
+      <label>Toz eğimi t₁</label><input id="pT1" type="number" step="0.004" value="0.028"/>
+      <button class="btn" id="recalcBtn">Yeniden hesapla</button>
+    </div>
     <h2>Veriler</h2>
     <div class="src-item"><span>Kruitwagen 2021</span><span>aktif</span></div>
-    <div class="src-item"><span>Li 2019–2022</span><span>aktif</span></div>
+    <div class="src-item"><span>Li 2022</span><span>aktif</span></div>
     <div class="src-item"><span>Yaprak 2026</span><span>aktif</span></div>
     <h2>İstatistik grafikleri</h2>
     <div class="chartbox"><h3>Kaynağa göre santral sayısı</h3><canvas id="cCount"></canvas></div>
@@ -109,6 +125,7 @@
       <div class="stat">Ort. panel: <b id="idAvg">–</b></div>
       <div class="stat">İl oranı: <b id="idR">–</b></div>
       <div class="stat">Ort. PVOUT: <b id="idP">–</b></div>
+      <div class="stat">Üretim: <b id="idE">–</b></div>
     </div>
     <div id="mapIl" class="map" style="flex:1"></div>
   </div>
@@ -117,7 +134,7 @@
     <h2>İlçe bazında</h2>
     <div class="tablewrap"><table id="idIlce"><thead><tr><th>İlçe</th><th>Adet</th><th>Alan (ha)</th><th>Ort. (ha)</th></tr></thead><tbody></tbody></table></div>
     <h2>Santraller</h2>
-    <div class="tablewrap"><table id="idTbl"><thead><tr><th>ID</th><th>İlçe</th><th>Alan (ha)</th><th>PVOUT</th></tr></thead><tbody></tbody></table></div>
+    <div class="tablewrap"><table id="idTbl"><thead><tr><th>ID</th><th>İlçe</th><th>Alan (ha)</th><th>Yıl</th><th>MWh/yıl</th></tr></thead><tbody></tbody></table></div>
   </aside>
 </div>
 
@@ -162,6 +179,19 @@ function normalize(gj){ALL=[];let auto=1;
 const fSrc=document.getElementById('fSrc'),fIl=document.getElementById('fIl'),fIlce=document.getElementById('fIlce'),fPv=document.getElementById('fPv'),fY1=document.getElementById('fY1'),fY2=document.getElementById('fY2');
 function ilVal(){return (fIl.value||'').trim();}
 fSrc.onchange=()=>{buildIl();apply();};fIl.oninput=()=>{buildIlce();apply();};fIlce.onchange=apply;fPv.oninput=apply;fY1.onchange=apply;fY2.onchange=apply;
+const ETA={2010:14.0,2011:14.3,2012:14.6,2013:15.0,2014:15.3,2015:15.7,2016:16.2,2017:16.8,2018:17.5,2019:18.3,2020:19.2,2021:20.0,2022:20.7,2023:21.3,2024:21.8,2025:22.3};
+function calcMwh(d,P){const y=Math.min(2025,Math.max(2010,d._yr||2017));
+  const eta=ETA[y]/100, age=Math.max(0,2025-y);
+  const fa=age===0?1:(1-P.lid)*Math.pow(1-P.d,age-1);
+  const ai=(d._dust===0||d._dust)?d._dust:-0.04;
+  const ft=1-Math.min(0.08,Math.max(0.01,0.01+P.t1*(ai+1)));
+  const pv=d._pv||1600;
+  return eta*pv*P.gcr*fa*ft*d._area/1000;}   // MWh/yil
+function recalcAll(){const P={gcr:+document.getElementById('pGCR').value||0.45,
+  d:(+document.getElementById('pD').value||0.5)/100, lid:(+document.getElementById('pLID').value||2)/100,
+  t1:+document.getElementById('pT1').value||0.028};
+  ALL.forEach(d=>{d._mwh=calcMwh(d,P);d.feat.properties._mwh=d._mwh;});apply();}
+document.getElementById('recalcBtn').onclick=recalcAll;
 function buildYears(){const ys=[...new Set(ALL.map(d=>d._yr).filter(Boolean))].sort();
   const o='<option value="">Tümü</option>'+ys.map(y=>'<option>'+y+'</option>').join('');fY1.innerHTML=o;fY2.innerHTML=o;}
 document.getElementById('resetBtn').onclick=()=>{fSrc.value='';fIl.value='';fIlce.value='';fPv.value=0;fY1.value='';fY2.value='';buildIl();apply();};
@@ -192,6 +222,8 @@ function apply(){const data=current();renderAgg();
   document.getElementById('kpiN').textContent=data.length;
   document.getElementById('kpiA').textContent=(data.reduce((s,d)=>s+d._area,0)/1e6).toFixed(2)+' km2';
   const pvs=data.map(d=>d._pv).filter(Boolean);document.getElementById('kpiP').textContent=pvs.length?(pvs.reduce((a,b)=>a+b,0)/pvs.length).toFixed(0):'–';
+  const totE=data.reduce((s2,d)=>s2+(d._mwh||0),0);document.getElementById('kpiE').textContent=totE?(totE/1000).toFixed(1)+' GWh/yıl':'–';
+  const dn=document.getElementById('dlN');if(dn)dn.textContent=data.length;
   const il=ilVal();if(il&&IL_BOUNDS[il]){map.fitBounds(IL_BOUNDS[il],{maxZoom:11});ilHi.clearLayers();const ff=IL_GEO&&IL_GEO.features.find(f=>f.properties.il===il);if(ff)ilHi.addData(ff);}else ilHi.clearLayers();
   buildTable(data);drawCharts(data);}
 
@@ -264,6 +296,7 @@ function renderIlView(il){if(!il)return;idCurIl=il;ilBound.clearLayers();ilPoly.
   document.getElementById('idN').textContent=n;document.getElementById('idA').textContent=ha.toFixed(1)+' ha';
   document.getElementById('idAvg').textContent=avg.toFixed(2)+' ha';document.getElementById('idR').textContent=ratio!=null?ratio.toFixed(4)+' %':'-';
   document.getElementById('idP').textContent=pvm?pvm.toFixed(0):'–';
+  const te=data.reduce((s2,d)=>s2+(d._mwh||0),0);document.getElementById('idE').textContent=te?(te/1000).toFixed(2)+' GWh/yıl':'–';
   // ilçe tablosu — satıra tıkla: o ilçeye zoom
   const byIlce={};data.forEach(d=>{const k=d._ilce||'?';(byIlce[k]=byIlce[k]||{n:0,a:0});byIlce[k].n++;byIlce[k].a+=d._area;});
   const it=document.querySelector('#idIlce tbody');it.innerHTML='';
@@ -275,7 +308,7 @@ function renderIlView(il){if(!il)return;idCurIl=il;ilBound.clearLayers();ilPoly.
   // santral tablosu — satıra tıkla: o panele git, nokta+popup
   const pt=document.querySelector('#idTbl tbody');pt.innerHTML='';
   data.slice().sort((x,y)=>y._area-x._area).slice(0,500).forEach(d=>{const tr=document.createElement('tr');
-    tr.innerHTML='<td>'+d._id+'</td><td>'+(d._ilce||'-')+'</td><td>'+(d._area/1e4).toFixed(2)+'</td><td>'+(d._pv?d._pv.toFixed(0):'-')+'</td>';
+    tr.innerHTML='<td>'+d._id+'</td><td>'+(d._ilce||'-')+'</td><td>'+(d._area/1e4).toFixed(2)+'</td><td>'+(d._yr||'-')+'</td><td>'+(d._mwh?d._mwh.toFixed(0):'-')+'</td>';
     tr.onclick=()=>{mapIl.flyTo([d.lat,d.lng],16,{duration:.6});selHi.clearLayers();
       L.circleMarker([d.lat,d.lng],{radius:8,color:'#fff',weight:2,fillColor:'#e8a33d',fillOpacity:.95}).addTo(selHi).bindPopup(popupHtml(d.feat.properties)).openPopup();};
     pt.appendChild(tr);});}
