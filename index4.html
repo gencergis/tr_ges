@@ -1,0 +1,312 @@
+<!DOCTYPE html><html lang="tr"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Türkiye Güneş Enerjisi Santralleri</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://unpkg.com/georaster@1.5.6/dist/georaster.browser.bundle.min.js"></script>
+<script src="https://unpkg.com/georaster-layer-for-leaflet@3.10.0/dist/georaster-layer-for-leaflet.min.js"></script>
+<script src="https://unpkg.com/@mapbox/shp-write@0.4.3/shpwrite.js"></script>
+<style>
+  :root{--bg:#0e1b22;--panel:#13242d;--panel2:#162c36;--ink:#eaf2f4;--muted:#8fa6ad;--line:#244049;--gold:#e8a33d;--teal:#2bb3a3;--li:#1a9850;--kw:#7b3294;--gn:#e8a33d;}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:'Segoe UI',system-ui,sans-serif;color:var(--ink);background:var(--bg)}
+  header{height:52px;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  header .dot{width:12px;height:26px;background:var(--gold);border-radius:2px}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  .tabs{display:flex;gap:6px;margin-left:18px}
+  .tab{padding:6px 14px;font-size:13px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--muted);cursor:pointer}
+  .tab.on{background:var(--teal);color:#06231f;border-color:var(--teal);font-weight:600}
+  header .spacer{flex:1} header .stat{font-size:12px;color:var(--muted)} header .stat b{color:var(--ink);font-size:14px}
+  .view{height:calc(100vh - 52px)}
+  #viewMain{display:grid;grid-template-columns:330px 1fr 360px}
+  #viewIl{display:grid;grid-template-columns:1fr 380px}
+  aside{background:var(--panel);overflow:auto;padding:14px} aside.left{border-right:1px solid var(--line)} aside.right{border-left:1px solid var(--line)}
+  .map{position:relative;height:100%}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--gold);margin:18px 0 8px} h2:first-child{margin-top:2px}
+  label{display:block;font-size:11px;color:var(--muted);margin:8px 0 3px}
+  select,input{width:100%;padding:7px 8px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;font-size:13px}
+  .btn{width:100%;margin-top:10px;padding:8px;background:var(--teal);color:#06231f;border:none;border-radius:6px;font-weight:600;cursor:pointer}
+  .btn.alt{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+  .legend{display:flex;flex-direction:column;gap:6px;font-size:12px}.legend .row{display:flex;align-items:center;gap:8px}.legend .sw{width:14px;height:14px;border-radius:3px}
+  .ramp{height:12px;border-radius:3px;background:linear-gradient(90deg,#2c7bb6,#abd9e9,#ffffbf,#fdae61,#d7191c);margin:4px 0}
+  .ramplab{display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}
+  .src-item{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;margin-top:6px;background:var(--panel2)}
+  .badge{font-size:10px;padding:2px 7px;border-radius:10px;background:#3a2a12;color:var(--gold);border:1px solid var(--gold)}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{position:sticky;top:0;background:var(--panel2);cursor:pointer;color:var(--muted);font-weight:600}
+  tbody tr{cursor:pointer} tbody tr:hover{background:var(--panel2)}
+  .tablewrap{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:6px}
+  .chartbox{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:12px}
+  .chartbox h3{margin:0 0 6px;font-size:12px} canvas{max-height:165px}
+  .kv{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:12px}
+  .kv .k{color:var(--muted)} .kv .v{color:var(--ink);font-weight:600;text-align:right}
+  .detail-title{font-size:15px;color:var(--gold);font-weight:700;margin-bottom:8px}
+  .leaflet-tooltip.idtt{background:#0e1b22;color:#fff;border:1px solid var(--gold);font-size:11px}
+  .cl{display:flex;align-items:center;justify-content:center;border-radius:50%;color:#06231f;font-weight:700;border:2px solid #06231f;box-shadow:0 0 0 3px rgba(43,179,163,.25)}
+  .ildbar{display:flex;align-items:center;gap:16px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+</style></head>
+<body>
+<header>
+  <div class="dot"></div><h1>Türkiye Güneş Enerjisi Santralleri</h1>
+  <div class="tabs"><div class="tab on" data-v="main">Genel Harita</div><div class="tab" data-v="il">İl Detayı</div></div>
+  <div class="spacer"></div>
+  <div class="stat">Santral: <b id="kpiN">–</b></div><div class="stat">Toplam alan: <b id="kpiA">–</b></div><div class="stat">Ort. PVOUT: <b id="kpiP">–</b></div>
+</header>
+
+<!-- ===== GENEL HARITA ===== -->
+<div id="viewMain" class="view">
+  <aside class="left">
+    <h2>Filtreler</h2>
+    <label>Veri kaynağı</label>
+    <select id="fSrc"><option value="">Tümü</option><option value="li">Li</option><option value="kruitwagen">Kruitwagen</option><option value="yaprak">Yaprak</option></select>
+    <label>İl ara / seç</label><input id="fIl" list="ilList" placeholder="İl yazın veya seçin…" autocomplete="off"/><datalist id="ilList"></datalist>
+    <label>İlçe</label><select id="fIlce"><option value="">Tümü</option></select>
+    <label>Kuruluş yılı (aralık)</label>
+    <div style="display:flex;gap:6px"><select id="fY1"><option value="">Tümü</option></select><select id="fY2"><option value="">Tümü</option></select></div>
+    <label>Min. PVOUT (kWh/kWp)</label><input type="range" id="fPv" min="0" max="2200" value="0" step="10"/>
+    <button class="btn" id="resetBtn">Filtreleri sıfırla</button>
+    <button class="btn alt" id="clearSel">Çizim seçimini temizle</button>
+    <h2>İndir (seçili paneller)</h2>
+    <button class="btn alt" id="dlGeo">GeoJSON indir</button>
+    <button class="btn alt" id="dlShp">SHP (zip) indir</button>
+    <h2>Santral listesi</h2>
+    <div class="tablewrap"><table id="tbl"><thead><tr>
+      <th data-k="id">ID</th><th data-k="source">Kaynak</th><th data-k="il">İl</th><th data-k="yr">Yıl</th><th data-k="area_ha">Alan (ha)</th><th data-k="mwh">MWh/yıl</th>
+    </tr></thead><tbody></tbody></table></div>
+  </aside>
+  <div id="map" class="map"></div>
+  <aside class="right">
+    <h2>Kaynak rengi</h2>
+    <div class="legend">
+      <div class="row"><span class="sw" style="background:var(--li)"></span>Li</div>
+      <div class="row"><span class="sw" style="background:var(--kw)"></span>Kruitwagen</div>
+      <div class="row"><span class="sw" style="background:var(--gold)"></span>Yaprak</div>
+    </div>
+    <h2>Güneş katmanı (PVOUT)</h2>
+    <div class="ramp"></div><div class="ramplab"><span id="pvMin">düşük</span><span id="pvMax">yüksek</span></div>
+    <h2>Veriler</h2>
+    <div class="src-item"><span>Kruitwagen 2021</span><span>aktif</span></div>
+    <div class="src-item"><span>Li 2019–2022</span><span>aktif</span></div>
+    <div class="src-item"><span>Yaprak 2026</span><span>aktif</span></div>
+    <h2>İstatistik grafikleri</h2>
+    <div class="chartbox"><h3>Kaynağa göre santral sayısı</h3><canvas id="cCount"></canvas></div>
+    <div class="chartbox"><h3>Kuruluş yılına göre santral sayısı</h3><canvas id="cYear"></canvas></div>
+    <div class="chartbox"><h3>En çok alana sahip iller (km²)</h3><canvas id="cProv"></canvas></div>
+  </aside>
+</div>
+
+<!-- ===== İL DETAYI ===== -->
+<div id="viewIl" class="view" style="display:none">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div class="ildbar">
+      <div><label style="margin:0">İl</label><select id="ilPick" style="width:220px"></select></div>
+      <div class="stat">Panel: <b id="idN">–</b></div>
+      <div class="stat">Alan: <b id="idA">–</b></div>
+      <div class="stat">Ort. panel: <b id="idAvg">–</b></div>
+      <div class="stat">İl oranı: <b id="idR">–</b></div>
+      <div class="stat">Ort. PVOUT: <b id="idP">–</b></div>
+    </div>
+    <div id="mapIl" class="map" style="flex:1"></div>
+  </div>
+  <aside class="right">
+    <h2 id="idTitle">İl detayı</h2>
+    <h2>İlçe bazında</h2>
+    <div class="tablewrap"><table id="idIlce"><thead><tr><th>İlçe</th><th>Adet</th><th>Alan (ha)</th><th>Ort. (ha)</th></tr></thead><tbody></tbody></table></div>
+    <h2>Santraller</h2>
+    <div class="tablewrap"><table id="idTbl"><thead><tr><th>ID</th><th>İlçe</th><th>Alan (ha)</th><th>PVOUT</th></tr></thead><tbody></tbody></table></div>
+  </aside>
+</div>
+
+<script>
+const SCOL={li:'#1a9850',kruitwagen:'#7b3294',yaprak:'#e8a33d'};
+const REGION={Marmara:["Balıkesir","Bilecik","Bursa","Çanakkale","Edirne","İstanbul","Kırklareli","Kocaeli","Sakarya","Tekirdağ","Yalova"],
+"Ege":["Afyonkarahisar","Aydın","Denizli","İzmir","Kütahya","Manisa","Muğla","Uşak"],
+"Akdeniz":["Adana","Antalya","Burdur","Hatay","Isparta","Kahramanmaraş","Mersin","Osmaniye"],
+"İç Anadolu":["Aksaray","Ankara","Çankırı","Eskişehir","Karaman","Kayseri","Kırıkkale","Kırşehir","Konya","Nevşehir","Niğde","Sivas","Yozgat"],
+"Karadeniz":["Amasya","Artvin","Bartın","Bayburt","Bolu","Çorum","Düzce","Giresun","Gümüşhane","Karabük","Kastamonu","Ordu","Rize","Samsun","Sinop","Tokat","Trabzon","Zonguldak"],
+"Doğu Anadolu":["Ağrı","Ardahan","Bingöl","Bitlis","Elazığ","Erzincan","Erzurum","Hakkari","Iğdır","Kars","Malatya","Muş","Tunceli","Van"],
+"Güneydoğu Anadolu":["Adıyaman","Batman","Diyarbakır","Gaziantep","Kilis","Mardin","Siirt","Şanlıurfa","Şırnak"]};
+const IL2REG={}; for(const r in REGION)REGION[r].forEach(i=>IL2REG[i]=r);
+
+const map=L.map('map',{zoomControl:true}).setView([39.0,35.2],6);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Esri',maxZoom:19}).addTo(map);
+const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19});
+const layerCtl=L.control.layers({},{},{position:'topright'}).addTo(map);layerCtl.addBaseLayer(map._layers[Object.keys(map._layers)[0]],'Uydu');layerCtl.addBaseLayer(osm,'Harita');
+map.createPane('pvoutPane');map.getPane('pvoutPane').style.zIndex=200;
+map.createPane('boundPane');map.getPane('boundPane').style.zIndex=350;
+
+const polyLayer=L.geoJSON(null,{style:f=>({color:SCOL[f.properties._src]||'#888',weight:1,fillOpacity:.55}),
+  onEachFeature:(f,l)=>{l.bindTooltip('ID '+f.properties._id,{className:'idtt'});l.bindPopup(popupHtml(f.properties));}});
+const aggLayer=L.layerGroup().addTo(map);
+const ilHi=L.geoJSON(null,{pane:'boundPane',style:{color:'#e8a33d',weight:3,fill:false}}).addTo(map);
+function popupHtml(p){return '<b>ID '+p._id+'</b><br>Kaynak: '+(p._src||'-')+'<br>'+(p._il||'-')+' / '+(p._ilce||'-')+'<br>Alan: '+(p._area/1e4).toFixed(2)+' ha'+(p._yr?'<br>Kuruluş: '+p._yr:'')+(p._pv?'<br>PVOUT: '+p._pv:'')+(p._mwh?'<br>Üretim: '+p._mwh.toFixed(0)+' MWh/yıl':'');}
+
+function ringAreaM2(c){const R=6378137;let a=0,n=c.length;if(n<3)return 0;for(let i=0;i<n;i++){const p1=c[i],p2=c[(i+1)%n];a+=(p2[0]-p1[0])*Math.PI/180*(2+Math.sin(p1[1]*Math.PI/180)+Math.sin(p2[1]*Math.PI/180));}return Math.abs(a*R*R/2);}
+function geomAreaKm2(g){let a=0;const ps=g.type==='Polygon'?[g.coordinates]:g.coordinates;ps.forEach(rings=>{a+=ringAreaM2(rings[0]);for(let k=1;k<rings.length;k++)a-=ringAreaM2(rings[k]);});return a/1e6;}
+const IL_AREA={}, IL_BOUNDS={};
+let IL_GEO=null, ILCE_GEO=null;
+
+let ALL=[],charts={},selSet=null;
+function centroid(g){let pts=[];const eat=c=>{if(typeof c[0]==='number')pts.push(c);else c.forEach(eat)};eat(g.coordinates);let x=0,y=0;pts.forEach(p=>{x+=p[0];y+=p[1]});return[y/pts.length,x/pts.length];}
+function normalize(gj){ALL=[];let auto=1;
+  (gj.features||[]).forEach(f=>{const p=f.properties||{};const src=(p.source||p.src||'li').toLowerCase();
+    const il=p.il||p.province||'';const ilce=p.ilce||p.district||'';const area=+(p.area_m2||p.area||0);const pv=+(p.pvout_mean||p.pvout||p.PVOUT||0)||null;
+    const id=p.id||p.ID||('PV'+(auto++));const c=centroid(f.geometry);
+    f.properties._id=id;f.properties._src=src;f.properties._il=il;f.properties._ilce=ilce;f.properties._area=area;f.properties._pv=pv;
+    ALL.push({feat:f,_id:id,_src:src,_il:il,_ilce:ilce,_area:area,_pv:pv,lat:c[0],lng:c[1],reg:IL2REG[il]||'?'});});
+  buildIl();fillIlPick();apply();try{map.fitBounds(L.latLngBounds(ALL.map(d=>[d.lat,d.lng])).pad(0.1),{maxZoom:7});}catch(e){}}
+const fSrc=document.getElementById('fSrc'),fIl=document.getElementById('fIl'),fIlce=document.getElementById('fIlce'),fPv=document.getElementById('fPv'),fY1=document.getElementById('fY1'),fY2=document.getElementById('fY2');
+function ilVal(){return (fIl.value||'').trim();}
+fSrc.onchange=()=>{buildIl();apply();};fIl.oninput=()=>{buildIlce();apply();};fIlce.onchange=apply;fPv.oninput=apply;fY1.onchange=apply;fY2.onchange=apply;
+function buildYears(){const ys=[...new Set(ALL.map(d=>d._yr).filter(Boolean))].sort();
+  const o='<option value="">Tümü</option>'+ys.map(y=>'<option>'+y+'</option>').join('');fY1.innerHTML=o;fY2.innerHTML=o;}
+document.getElementById('resetBtn').onclick=()=>{fSrc.value='';fIl.value='';fIlce.value='';fPv.value=0;fY1.value='';fY2.value='';buildIl();apply();};
+document.getElementById('clearSel').onclick=()=>{selSet=null;drawn.clearLayers();apply();};
+function buildIl(){const src=fSrc.value;const ils=[...new Set(ALL.filter(d=>!src||d._src===src).map(d=>d._il).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+  document.getElementById('ilList').innerHTML=ils.map(i=>'<option value="'+i+'">').join('');buildIlce();}
+function buildIlce(){const il=ilVal(),src=fSrc.value;const x=[...new Set(ALL.filter(d=>(!src||d._src===src)&&(!il||d._il===il)).map(d=>d._ilce).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+  fIlce.innerHTML='<option value="">Tümü</option>'+x.map(i=>'<option>'+i+'</option>').join('');}
+function current(){const src=fSrc.value,il=ilVal(),ilce=fIlce.value,pmin=+fPv.value;
+  const y1=+fY1.value||0,y2=+fY2.value||9999;
+  return ALL.filter(d=>(!src||d._src===src)&&(!il||d._il===il)&&(!ilce||d._ilce===ilce)&&(pmin<=0||(d._pv||0)>=pmin)&&(!y1&&!fY2.value||((d._yr||0)>=y1&&(d._yr||0)<=y2))&&(!selSet||selSet.has(d._id)));}
+
+const Z_TR=6,Z_REG=7,Z_IL=8.5,Z_ILCE=11,Z_POINT=14;
+function bubble(lat,lng,n,label,toZoom){const r=Math.max(18,Math.min(54,12+Math.sqrt(n)*3));
+  const ic=L.divIcon({className:'',html:'<div class="cl" style="width:'+r+'px;height:'+r+'px;background:rgba(43,179,163,.9);font-size:'+(n>999?10:12)+'px">'+n+'</div>',iconSize:[r,r]});
+  const m=L.marker([lat,lng],{icon:ic}).bindTooltip(label+': '+n+' santral',{direction:'top'});m.on('click',()=>map.flyTo([lat,lng],toZoom,{duration:.6}));return m;}
+function groupAgg(data,key){const g={};data.forEach(d=>{const k=key(d)||'?';(g[k]=g[k]||{n:0,la:0,lo:0});const o=g[k];o.n++;o.la+=d.lat;o.lo+=d.lng;});return g;}
+function renderAgg(){const data=current(),z=map.getZoom();aggLayer.clearLayers();if(map.hasLayer(polyLayer))map.removeLayer(polyLayer);
+  if(z>=Z_POINT){map.addLayer(polyLayer);polyLayer.clearLayers();data.forEach(d=>polyLayer.addData(d.feat));return;}
+  if(z>=Z_ILCE){data.forEach(d=>{const m=L.circleMarker([d.lat,d.lng],{radius:4,color:SCOL[d._src]||'#888',fillColor:SCOL[d._src]||'#888',fillOpacity:.9,weight:1});
+    m.bindTooltip('ID '+d._id,{className:'idtt'});m.bindPopup(popupHtml(d.feat.properties));aggLayer.addLayer(m);});return;}
+  if(z<Z_TR){const t=data.reduce((o,d)=>{o.n++;o.la+=d.lat;o.lo+=d.lng;return o;},{n:0,la:0,lo:0});if(t.n)aggLayer.addLayer(bubble(t.la/t.n,t.lo/t.n,t.n,'Türkiye',Z_REG+.2));return;}
+  let g,toZ;if(z<Z_REG){g=groupAgg(data,d=>d.reg);toZ=Z_IL+.2;}else if(z<Z_IL){g=groupAgg(data,d=>d._il);toZ=Z_ILCE+.2;}else{g=groupAgg(data,d=>d._il+' / '+d._ilce);toZ=Z_POINT+.2;}
+  Object.entries(g).forEach(([k,o])=>aggLayer.addLayer(bubble(o.la/o.n,o.lo/o.n,o.n,k,toZ)));}
+map.on('zoomend moveend',renderAgg);
+
+function apply(){const data=current();renderAgg();
+  document.getElementById('kpiN').textContent=data.length;
+  document.getElementById('kpiA').textContent=(data.reduce((s,d)=>s+d._area,0)/1e6).toFixed(2)+' km2';
+  const pvs=data.map(d=>d._pv).filter(Boolean);document.getElementById('kpiP').textContent=pvs.length?(pvs.reduce((a,b)=>a+b,0)/pvs.length).toFixed(0):'–';
+  const il=ilVal();if(il&&IL_BOUNDS[il]){map.fitBounds(IL_BOUNDS[il],{maxZoom:11});ilHi.clearLayers();const ff=IL_GEO&&IL_GEO.features.find(f=>f.properties.il===il);if(ff)ilHi.addData(ff);}else ilHi.clearLayers();
+  buildTable(data);drawCharts(data);}
+
+const drawn=new L.FeatureGroup().addTo(map);
+map.addControl(new L.Control.Draw({position:'topleft',draw:{polygon:{shapeOptions:{color:'#e8a33d'}},rectangle:{shapeOptions:{color:'#e8a33d'}},polyline:false,circle:false,marker:false,circlemarker:false},edit:{featureGroup:drawn,edit:false,remove:true}}));
+function pip(lat,lng,ring){let c=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const xi=ring[i].lng,yi=ring[i].lat,xj=ring[j].lng,yj=ring[j].lat;if(((yi>lat)!==(yj>lat))&&(lng<(xj-xi)*(lat-yi)/(yj-yi)+xi))c=!c;}return c;}
+map.on(L.Draw.Event.CREATED,e=>{drawn.clearLayers();drawn.addLayer(e.layer);const lyr=e.layer;selSet=new Set();
+  if(lyr instanceof L.Rectangle){const b=lyr.getBounds();ALL.forEach(d=>{if(b.contains([d.lat,d.lng]))selSet.add(d._id);});}else{const ring=lyr.getLatLngs()[0];ALL.forEach(d=>{if(pip(d.lat,d.lng,ring))selSet.add(d._id);});}apply();});
+map.on('draw:deleted',()=>{selSet=null;apply();});
+
+let sortK='area_ha',sortDir=-1;
+document.querySelectorAll('#tbl th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;sortDir=(sortK===k)?-sortDir:1;sortK=k;buildTable(current());});
+function buildTable(data){const rows=data.map(d=>({id:d._id,source:d._src,il:d._il,yr:d._yr||0,area_ha:d._area/1e4,mwh:d._mwh||0,lat:d.lat,lng:d.lng}));
+  rows.sort((a,b)=>{const x=a[sortK],y=b[sortK];return (x>y?1:x<y?-1:0)*sortDir;});
+  const tb=document.querySelector('#tbl tbody');tb.innerHTML='';
+  rows.slice(0,800).forEach(r=>{const tr=document.createElement('tr');tr.innerHTML='<td>'+r.id+'</td><td>'+r.source+'</td><td>'+(r.il||'-')+'</td><td>'+(r.yr||'-')+'</td><td>'+r.area_ha.toFixed(2)+'</td><td>'+(r.mwh?r.mwh.toFixed(0):'-')+'</td>';
+    tr.onclick=()=>map.flyTo([r.lat,r.lng],15,{duration:.8});tb.appendChild(tr);});}
+
+function baseOpts(){return{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8fa6ad',font:{size:10}},grid:{color:'#244049'}},y:{ticks:{color:'#8fa6ad',font:{size:10}},grid:{color:'#244049'}}}};}
+function mkBar(id,labels,vals,colors,horiz){if(charts[id])charts[id].destroy();const o=baseOpts();if(horiz)o.indexAxis='y';charts[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors}]},options:o});}
+function drawCharts(data){const srcs=['kruitwagen','li','yaprak'];
+  mkBar('cCount',srcs.map(s=>s[0].toUpperCase()+s.slice(1)),srcs.map(s=>data.filter(d=>d._src===s).length),srcs.map(s=>SCOL[s]));
+  const byY={};data.forEach(d=>{if(d._yr)byY[d._yr]=(byY[d._yr]||0)+1;});
+  const ys=Object.keys(byY).sort();
+  mkBar('cYear',ys,ys.map(y=>byY[y]),'#e8a33d');
+  const byIl={};data.forEach(d=>{byIl[d._il||'?']=(byIl[d._il||'?']||0)+d._area/1e6;});const prov=Object.entries(byIl).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  mkBar('cProv',prov.map(p=>p[0]),prov.map(p=>p[1]),'#2bb3a3',true);}
+
+/* ===== sekme + İl Detayı ===== */
+let mapIl=null,ilPoly=null,ilBound=null,ilClick=null,selHi=null,idData=[],ilceClick=null,ilPts=null,idCurIl=null;
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));t.classList.add('on');
+  const v=t.dataset.v;document.getElementById('viewMain').style.display=v==='main'?'grid':'none';document.getElementById('viewIl').style.display=v==='il'?'grid':'none';
+  if(v==='main')setTimeout(()=>map.invalidateSize(),60);else openIlView();});
+function fillIlPick(){const ils=[...new Set(ALL.map(d=>d._il).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+  document.getElementById('ilPick').innerHTML=ils.map(i=>'<option>'+i+'</option>').join('');}
+document.getElementById('ilPick').onchange=()=>renderIlView(document.getElementById('ilPick').value);
+function openIlView(){if(!mapIl){mapIl=L.map('mapIl',{zoomControl:true});L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(mapIl);
+    // tüm iller — mouse ile tıklanabilir
+    ilClick=L.geoJSON(null,{style:{color:'#000',weight:1,fill:true,fillOpacity:0,fillColor:'#e8a33d'},
+      onEachFeature:(f,l)=>{l.bindTooltip(f.properties.il,{sticky:true});
+        l.on('mouseover',()=>l.setStyle({fillOpacity:.18}));l.on('mouseout',()=>l.setStyle({fillOpacity:0}));
+        l.on('click',()=>{document.getElementById('ilPick').value=f.properties.il;renderIlView(f.properties.il);});}}).addTo(mapIl);
+    ilBound=L.geoJSON(null,{style:{color:'#000',weight:2.5,fill:false}}).addTo(mapIl);
+    ilPoly=L.geoJSON(null,{style:f=>({color:SCOL[f.properties._src]||'#888',weight:1,fillOpacity:.6}),onEachFeature:(f,l)=>l.bindPopup(popupHtml(f.properties))}).addTo(mapIl);
+    ilPts=L.layerGroup().addTo(mapIl);
+    ilceClick=L.geoJSON(null,{style:{color:'#bbb',weight:.8,fill:true,fillOpacity:0},
+      onEachFeature:(f,l)=>{l.bindTooltip(f.properties.ilce,{sticky:true});
+        l.on('mouseover',()=>l.setStyle({fillOpacity:.18,fillColor:'#2bb3a3'}));l.on('mouseout',()=>l.setStyle({fillOpacity:0}));
+        l.on('click',()=>zoomIlce(f.properties.ilce));}}).addTo(mapIl);
+    selHi=L.layerGroup().addTo(mapIl);}
+  if(ilClick&&IL_GEO&&ilClick.getLayers().length===0)ilClick.addData(IL_GEO);
+  setTimeout(()=>mapIl.invalidateSize(),60);
+  const sel=fIl.value||document.getElementById('ilPick').value;if(sel){document.getElementById('ilPick').value=sel;}renderIlView(document.getElementById('ilPick').value);}
+function zoomIlce(ilce){if(!selHi)return;selHi.clearLayers();
+  const pp=idData.filter(d=>(d._ilce||'?')===ilce);
+  if(pp.length){mapIl.fitBounds(L.latLngBounds(pp.map(d=>[d.lat,d.lng])).pad(0.3),{maxZoom:14});
+    pp.forEach(d=>L.circleMarker([d.lat,d.lng],{radius:6,color:'#fff',weight:2,fillColor:'#2bb3a3',fillOpacity:.95}).addTo(selHi));}
+  else if(ILCE_GEO){const f=ILCE_GEO.features.find(x=>x.properties.il===idCurIl&&x.properties.ilce===ilce);if(f)mapIl.fitBounds(L.geoJSON(f).getBounds(),{maxZoom:13});}}
+function renderIlView(il){if(!il)return;idCurIl=il;ilBound.clearLayers();ilPoly.clearLayers();if(selHi)selHi.clearLayers();if(ilPts)ilPts.clearLayers();if(ilceClick)ilceClick.clearLayers();
+  const ff=IL_GEO&&IL_GEO.features.find(f=>f.properties.il===il);if(ff)ilBound.addData(ff);
+  const data=ALL.filter(d=>d._il===il);idData=data;
+  data.forEach(d=>{ilPoly.addData(d.feat);
+    L.circleMarker([d.lat,d.lng],{radius:4,color:SCOL[d._src]||'#888',fillColor:SCOL[d._src]||'#888',fillOpacity:.95,weight:1}).bindTooltip('ID '+d._id,{className:'idtt'}).bindPopup(popupHtml(d.feat.properties)).addTo(ilPts);});
+  if(ILCE_GEO){const df=ILCE_GEO.features.filter(f=>f.properties.il===il);if(df.length)ilceClick.addData({type:'FeatureCollection',features:df});}
+  if(IL_BOUNDS[il])mapIl.fitBounds(IL_BOUNDS[il],{maxZoom:12});
+  const n=data.length,a=data.reduce((s,d)=>s+d._area,0),ha=a/1e4,km2=a/1e6,avg=n?(a/n)/1e4:0;
+  const ilkm2=IL_AREA[il]||null,ratio=ilkm2?(km2/ilkm2*100):null;
+  const pvs=data.map(d=>d._pv).filter(Boolean),pvm=pvs.length?(pvs.reduce((x,y)=>x+y,0)/pvs.length):null;
+  document.getElementById('idTitle').textContent=il+' — il detayı';
+  document.getElementById('idN').textContent=n;document.getElementById('idA').textContent=ha.toFixed(1)+' ha';
+  document.getElementById('idAvg').textContent=avg.toFixed(2)+' ha';document.getElementById('idR').textContent=ratio!=null?ratio.toFixed(4)+' %':'-';
+  document.getElementById('idP').textContent=pvm?pvm.toFixed(0):'–';
+  // ilçe tablosu — satıra tıkla: o ilçeye zoom
+  const byIlce={};data.forEach(d=>{const k=d._ilce||'?';(byIlce[k]=byIlce[k]||{n:0,a:0});byIlce[k].n++;byIlce[k].a+=d._area;});
+  const it=document.querySelector('#idIlce tbody');it.innerHTML='';
+  Object.entries(byIlce).sort((x,y)=>y[1].a-x[1].a).forEach(([k,o])=>{const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+k+'</td><td>'+o.n+'</td><td>'+(o.a/1e4).toFixed(1)+'</td><td>'+((o.a/o.n)/1e4).toFixed(2)+'</td>';
+    tr.onclick=()=>{const pp=data.filter(d=>(d._ilce||'?')===k);if(pp.length){mapIl.fitBounds(L.latLngBounds(pp.map(d=>[d.lat,d.lng])).pad(0.3),{maxZoom:14});
+      selHi.clearLayers();pp.forEach(d=>L.circleMarker([d.lat,d.lng],{radius:5,color:'#fff',weight:1.5,fillColor:'#e8a33d',fillOpacity:.9}).addTo(selHi));}};
+    it.appendChild(tr);});
+  // santral tablosu — satıra tıkla: o panele git, nokta+popup
+  const pt=document.querySelector('#idTbl tbody');pt.innerHTML='';
+  data.slice().sort((x,y)=>y._area-x._area).slice(0,500).forEach(d=>{const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+d._id+'</td><td>'+(d._ilce||'-')+'</td><td>'+(d._area/1e4).toFixed(2)+'</td><td>'+(d._pv?d._pv.toFixed(0):'-')+'</td>';
+    tr.onclick=()=>{mapIl.flyTo([d.lat,d.lng],16,{duration:.6});selHi.clearLayers();
+      L.circleMarker([d.lat,d.lng],{radius:8,color:'#fff',weight:2,fillColor:'#e8a33d',fillOpacity:.95}).addTo(selHi).bindPopup(popupHtml(d.feat.properties)).openPopup();};
+    pt.appendChild(tr);});}
+
+function pvColor(v){if(v==null||isNaN(v))return null;const lo=1100,hi=2000,t=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
+  const stops=[[44,123,182],[171,217,233],[255,255,191],[253,174,97],[215,25,28]];const f=t*(stops.length-1),i=Math.floor(f),r=f-i,a=stops[i],b=stops[Math.min(i+1,stops.length-1)];
+  return 'rgba('+((a[0]+(b[0]-a[0])*r)|0)+','+((a[1]+(b[1]-a[1])*r)|0)+','+((a[2]+(b[2]-a[2])*r)|0)+',0.75)';}
+fetch('gsa_pvout.tif').then(r=>{if(!r.ok)throw 0;return r.arrayBuffer();}).then(parseGeoraster).then(gr=>{
+  document.getElementById('pvMin').textContent=Math.round((gr.mins&&gr.mins[0])||1100);document.getElementById('pvMax').textContent=Math.round((gr.maxs&&gr.maxs[0])||2000);
+  layerCtl.addOverlay(new GeoRasterLayer({georaster:gr,opacity:0.75,resolution:128,pane:'pvoutPane',pixelValuesToColorFn:v=>pvColor(v[0])}),'Güneş (PVOUT)');}).catch(()=>{});
+fetch('tr_il.geojson').then(r=>r.json()).then(gj=>{IL_GEO=gj;gj.features.forEach(f=>{const nm=f.properties.il;IL_AREA[nm]=geomAreaKm2(f.geometry);IL_BOUNDS[nm]=L.geoJSON(f).getBounds();});
+  layerCtl.addOverlay(L.geoJSON(gj,{pane:'boundPane',style:{color:'#000',weight:1.5,fill:false}}),'İl sınırları (siyah)');}).catch(()=>{});
+fetch('tr_ilce.geojson').then(r=>r.json()).then(gj=>{ILCE_GEO=gj;layerCtl.addOverlay(L.geoJSON(gj,{pane:'boundPane',style:{color:'#555',weight:.6,fill:false}}),'İlçe sınırları');}).catch(()=>{});
+function aerColor(v){if(v==null||isNaN(v))return null;const lo=-1,hi=1.2,t=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
+  const st=[[44,123,182],[171,217,233],[255,255,191],[253,174,97],[215,25,28]];
+  const f2=t*(st.length-1),i=Math.floor(f2),r=f2-i,a=st[i],b=st[Math.min(i+1,st.length-1)];
+  return 'rgba('+((a[0]+(b[0]-a[0])*r)|0)+','+((a[1]+(b[1]-a[1])*r)|0)+','+((a[2]+(b[2]-a[2])*r)|0)+',0.7)';}
+fetch('dust_aer_ai_2025.tif').then(r=>{if(!r.ok)throw 0;return r.arrayBuffer();}).then(parseGeoraster).then(gr=>{
+  layerCtl.addOverlay(new GeoRasterLayer({georaster:gr,opacity:0.7,resolution:128,pane:'pvoutPane',pixelValuesToColorFn:v=>aerColor(v[0])}),'Toz (Aerosol Index 2025)');}).catch(()=>{});
+function selFC(){const data=current();return {type:'FeatureCollection',features:data.map(d=>({type:'Feature',
+  properties:{id:d._id,source:d._src,il:d._il,ilce:d._ilce,area_m2:d._area,built_year:d._yr,pvout:d._pv,uretim_mwh_yil:d._mwh},
+  geometry:d.feat.geometry}))};}
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
+document.getElementById('dlGeo').onclick=()=>{const fc=selFC();if(!fc.features.length)return alert('Seçimde panel yok');
+  dl(new Blob([JSON.stringify(fc)],{type:'application/geo+json'}),'tr_pv_secim.geojson');};
+document.getElementById('dlShp').onclick=async()=>{const fc=selFC();if(!fc.features.length)return alert('Seçimde panel yok');
+  try{const b64=await shpwrite.zip(fc,{outputType:'base64',types:{polygon:'tr_pv_secim'}});
+    const bin=atob(b64),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+    dl(new Blob([arr],{type:'application/zip'}),'tr_pv_secim_shp.zip');}
+  catch(e){alert('SHP üretilemedi ('+e+') — GeoJSON indirip QGIS ile dönüştürebilirsiniz.');}};
+fetch('pv_polygons_energy.geojson').then(r=>{if(!r.ok)throw 0;return r.json();}).then(normalize)
+ .catch(()=>fetch('pv_polygons_gsa.geojson').then(r=>{if(!r.ok)throw 0;return r.json();}).then(normalize)
+ .catch(()=>alert('Veri yüklenemedi — http://localhost:8000 üzerinden açın.')));
+</script></body></html>
