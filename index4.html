@@ -172,10 +172,13 @@ function centroid(g){let pts=[];const eat=c=>{if(typeof c[0]==='number')pts.push
 function normalize(gj){ALL=[];let auto=1;
   (gj.features||[]).forEach(f=>{const p=f.properties||{};const src=(p.source||p.src||'li').toLowerCase();
     const il=p.il||p.province||'';const ilce=p.ilce||p.district||'';const area=+(p.area_m2||p.area||0);const pv=+(p.pvout_mean||p.pvout||p.PVOUT||0)||null;
+    const yr=+(p.built_year)||null;
+    const mwh=+(p.uretim_mwh_yil)||null;
+    const dust=(p.dust===0||p.dust)?+p.dust:null;
     const id=p.id||p.ID||('PV'+(auto++));const c=centroid(f.geometry);
-    f.properties._id=id;f.properties._src=src;f.properties._il=il;f.properties._ilce=ilce;f.properties._area=area;f.properties._pv=pv;
-    ALL.push({feat:f,_id:id,_src:src,_il:il,_ilce:ilce,_area:area,_pv:pv,lat:c[0],lng:c[1],reg:IL2REG[il]||'?'});});
-  buildIl();fillIlPick();apply();try{map.fitBounds(L.latLngBounds(ALL.map(d=>[d.lat,d.lng])).pad(0.1),{maxZoom:7});}catch(e){}}
+    f.properties._id=id;f.properties._src=src;f.properties._il=il;f.properties._ilce=ilce;f.properties._area=area;f.properties._pv=pv;f.properties._yr=yr;f.properties._mwh=mwh;f.properties._dust=dust;
+    ALL.push({feat:f,_id:id,_src:src,_il:il,_ilce:ilce,_area:area,_pv:pv,_yr:yr,_mwh:mwh,_dust:dust,lat:c[0],lng:c[1],reg:IL2REG[il]||'?'});});
+  buildIl();fillIlPick();buildYears();apply();try{map.fitBounds(L.latLngBounds(ALL.map(d=>[d.lat,d.lng])).pad(0.1),{maxZoom:7});}catch(e){}}
 const fSrc=document.getElementById('fSrc'),fIl=document.getElementById('fIl'),fIlce=document.getElementById('fIlce'),fPv=document.getElementById('fPv'),fY1=document.getElementById('fY1'),fY2=document.getElementById('fY2');
 function ilVal(){return (fIl.value||'').trim();}
 fSrc.onchange=()=>{buildIl();apply();};fIl.oninput=()=>{buildIlce();apply();};fIlce.onchange=apply;fPv.oninput=apply;fY1.onchange=apply;fY2.onchange=apply;
