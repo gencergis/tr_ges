@@ -63,7 +63,7 @@
   <aside class="left">
     <h2>Filtreler</h2>
     <label>Veri kaynağı</label>
-    <select id="fSrc"><option value="">Tümü</option><option value="li">Li</option><option value="kruitwagen">Kruitwagen</option><option value="yaprak">Yaprak</option></select>
+    <select id="fSrc"><option value="kruitwagen" selected>Kruitwagen</option><option value="li">Li</option><option value="yaprak">Yaprak</option></select>
     <label>İl ara / seç</label><input id="fIl" list="ilList" placeholder="İl yazın veya seçin…" autocomplete="off"/><datalist id="ilList"></datalist>
     <label>İlçe</label><select id="fIlce"><option value="">Tümü</option></select>
     <label>Kuruluş yılı (aralık)</label>
@@ -80,7 +80,22 @@
       <th data-k="id">ID</th><th data-k="source">Kaynak</th><th data-k="il">İl</th><th data-k="yr">Yıl</th><th data-k="area_ha">Alan (ha)</th><th data-k="mwh">MWh/yıl</th>
     </tr></thead><tbody></tbody></table></div>
   </aside>
+  <div style="position:relative">
   <div id="map" class="map"></div>
+  <div id="choroBox" style="position:absolute;z-index:600;top:12px;left:52px;background:rgba(14,23,38,.92);border:1px solid #244049;border-radius:8px;color:#dbe7ea;font-size:12px;width:220px;box-shadow:0 4px 14px rgba(0,0,0,.4)">
+    <div id="choroHead" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;cursor:pointer;font-weight:bold">
+      <span>🗺️ İl renklendirme</span><span id="choroCaret">▸</span></div>
+    <div id="choroBody" style="display:none;padding:0 10px 10px">
+      <label style="display:flex;align-items:center;gap:6px;margin:4px 0"><input type="radio" name="choroM" value="uretim" checked> Enerji üretimi (GWh/yıl)</label>
+      <label style="display:flex;align-items:center;gap:6px;margin:4px 0"><input type="radio" name="choroM" value="alan"> Panel alanı (km²)</label>
+      <label style="display:flex;align-items:center;gap:6px;margin:8px 0 4px"><input type="checkbox" id="choroToggle"> Haritada göster</label>
+      <div id="choroLegend" style="display:none;margin-top:6px">
+        <div id="choroBar" style="height:10px;border-radius:5px;border:1px solid #244049"></div>
+        <div style="display:flex;justify-content:space-between;color:#8fa6ad;font-size:10px;margin-top:2px"><span id="choroMin">0</span><span id="choroMax">–</span></div>
+      </div>
+    </div>
+  </div>
+  </div>
   <aside class="right">
     <h2>Kaynak rengi</h2>
     <div class="legend">
@@ -111,6 +126,7 @@
     <h2>İstatistik grafikleri</h2>
     <div class="chartbox"><h3>Kaynağa göre santral sayısı</h3><canvas id="cCount"></canvas></div>
     <div class="chartbox"><h3>Kuruluş yılına göre santral sayısı</h3><canvas id="cYear"></canvas></div>
+    <div class="chartbox"><h3 id="cTsTitle">Yıllara göre kümülatif üretim (GWh/yıl)</h3><canvas id="cTs"></canvas></div>
     <div class="chartbox"><h3>En çok alana sahip iller (km²)</h3><canvas id="cProv"></canvas></div>
   </aside>
 </div>
@@ -160,6 +176,8 @@ const polyLayer=L.geoJSON(null,{style:f=>({color:SCOL[f.properties._src]||'#888'
   onEachFeature:(f,l)=>{l.bindTooltip('ID '+f.properties._id,{className:'idtt'});l.bindPopup(popupHtml(f.properties));}});
 const aggLayer=L.layerGroup().addTo(map);
 const ilHi=L.geoJSON(null,{pane:'boundPane',style:{color:'#e8a33d',weight:3,fill:false}}).addTo(map);
+map.createPane('choroPane');map.getPane('choroPane').style.zIndex=250;
+let choroLayer=null, choroOn=false, choroMetric='uretim';
 function popupHtml(p){return '<b>ID '+p._id+'</b><br>Kaynak: '+(p._src||'-')+'<br>'+(p._il||'-')+' / '+(p._ilce||'-')+'<br>Alan: '+(p._area/1e4).toFixed(2)+' ha'+(p._yr?'<br>Kuruluş: '+p._yr:'')+(p._pv?'<br>PVOUT: '+p._pv:'')+(p._mwh?'<br>Üretim: '+p._mwh.toFixed(0)+' MWh/yıl':'');}
 
 function ringAreaM2(c){const R=6378137;let a=0,n=c.length;if(n<3)return 0;for(let i=0;i<n;i++){const p1=c[i],p2=c[(i+1)%n];a+=(p2[0]-p1[0])*Math.PI/180*(2+Math.sin(p1[1]*Math.PI/180)+Math.sin(p2[1]*Math.PI/180));}return Math.abs(a*R*R/2);}
@@ -221,6 +239,42 @@ function renderAgg(){const data=current(),z=map.getZoom();aggLayer.clearLayers()
   Object.entries(g).forEach(([k,o])=>aggLayer.addLayer(bubble(o.la/o.n,o.lo/o.n,o.n,k,toZ)));}
 map.on('zoomend moveend',renderAgg);
 
+
+// ===== IL RENKLENDIRME (choropleth) =====
+function choroColor(t){ // t: 0..1
+  const st=[[14,23,38],[123,49,148],[200,60,40],[232,163,61],[252,240,180]];
+  if(choroMetric==='alan')st.splice(0,5,[14,23,38],[27,94,77],[43,179,163],[150,210,120],[245,245,210]);
+  t=Math.max(0,Math.min(1,t));const f=t*(st.length-1),i=Math.floor(f),r=f-i,a=st[i],b=st[Math.min(i+1,st.length-1)];
+  return 'rgb('+((a[0]+(b[0]-a[0])*r)|0)+','+((a[1]+(b[1]-a[1])*r)|0)+','+((a[2]+(b[2]-a[2])*r)|0)+')';}
+function ilValues(){ // mevcut filtreye gore il -> deger
+  const data=current(),m={};
+  data.forEach(d=>{const il=d._il||'?';if(!m[il])m[il]={uretim:0,alan:0};
+    m[il].uretim+=(d._mwh||0)/1000;        // GWh/yil
+    m[il].alan+=d._area/1e6;});             // km2
+  return m;}
+function renderChoro(){
+  if(!IL_GEO)return;
+  if(choroLayer){map.removeLayer(choroLayer);choroLayer=null;}
+  if(!choroOn){updateChoroLegend(null,0);return;}
+  const vals=ilValues();let mx=0;for(const il in vals)mx=Math.max(mx,vals[il][choroMetric]);
+  if(mx<=0)mx=1;
+  choroLayer=L.geoJSON(IL_GEO,{pane:'choroPane',style:f=>{
+    const v=(vals[f.properties.il]||{})[choroMetric]||0;
+    return {color:'#0b1a2a',weight:.6,fillColor:choroColor(v/mx),fillOpacity:v>0?0.78:0.12};},
+    onEachFeature:(f,l)=>{const v=(vals[f.properties.il]||{})[choroMetric]||0;
+      l.bindTooltip('<b>'+f.properties.il+'</b><br>'+(choroMetric==='uretim'?(v.toFixed(1)+' GWh/yıl'):(v.toFixed(2)+' km²')),{sticky:true});
+      l.on('click',()=>{fIl.value=f.properties.il;buildIlce();apply();});}}).addTo(map);
+  updateChoroLegend(vals,mx);}
+function updateChoroLegend(vals,mx){
+  const wrap=document.getElementById('choroLegend');if(!wrap)return;
+  if(!choroOn){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  const unit=choroMetric==='uretim'?'GWh/yıl':'km²';
+  let grad='';for(let i=0;i<=10;i++)grad+=choroColor(i/10)+' '+(i*10)+'%'+(i<10?',':'');
+  document.getElementById('choroBar').style.background='linear-gradient(90deg,'+grad+')';
+  document.getElementById('choroMax').textContent=(mx||0).toFixed(choroMetric==='uretim'?0:1)+' '+unit;
+  document.getElementById('choroMin').textContent='0';}
+
 function apply(){const data=current();renderAgg();
   document.getElementById('kpiN').textContent=data.length;
   document.getElementById('kpiA').textContent=(data.reduce((s,d)=>s+d._area,0)/1e6).toFixed(2)+' km2';
@@ -228,7 +282,7 @@ function apply(){const data=current();renderAgg();
   const totE=data.reduce((s2,d)=>s2+(d._mwh||0),0);document.getElementById('kpiE').textContent=totE?(totE/1000).toFixed(1)+' GWh/yıl':'–';
   const dn=document.getElementById('dlN');if(dn)dn.textContent=data.length;
   const il=ilVal();if(il&&IL_BOUNDS[il]){map.fitBounds(IL_BOUNDS[il],{maxZoom:11});ilHi.clearLayers();const ff=IL_GEO&&IL_GEO.features.find(f=>f.properties.il===il);if(ff)ilHi.addData(ff);}else ilHi.clearLayers();
-  buildTable(data);drawCharts(data);}
+  buildTable(data);drawCharts(data);renderChoro();}
 
 const drawn=new L.FeatureGroup().addTo(map);
 map.addControl(new L.Control.Draw({position:'topleft',draw:{polygon:{shapeOptions:{color:'#e8a33d'}},rectangle:{shapeOptions:{color:'#e8a33d'}},polyline:false,circle:false,marker:false,circlemarker:false},edit:{featureGroup:drawn,edit:false,remove:true}}));
@@ -247,13 +301,22 @@ function buildTable(data){const rows=data.map(d=>({id:d._id,source:d._src,il:d._
 
 function baseOpts(){return{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8fa6ad',font:{size:10}},grid:{color:'#244049'}},y:{ticks:{color:'#8fa6ad',font:{size:10}},grid:{color:'#244049'}}}};}
 function mkBar(id,labels,vals,colors,horiz){if(charts[id])charts[id].destroy();const o=baseOpts();if(horiz)o.indexAxis='y';charts[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors}]},options:o});}
+function mkLine(id,labels,vals,color){if(charts[id])charts[id].destroy();const o=baseOpts();o.elements={point:{radius:2}};
+  charts[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[{data:vals,borderColor:color,backgroundColor:color+'33',fill:true,tension:.25,borderWidth:2}]},options:o});}
 function drawCharts(data){const srcs=['kruitwagen','li','yaprak'];
   mkBar('cCount',srcs.map(s=>s[0].toUpperCase()+s.slice(1)),srcs.map(s=>data.filter(d=>d._src===s).length),srcs.map(s=>SCOL[s]));
   const byY={};data.forEach(d=>{if(d._yr)byY[d._yr]=(byY[d._yr]||0)+1;});
   const ys=Object.keys(byY).sort();
   mkBar('cYear',ys,ys.map(y=>byY[y]),'#e8a33d');
   const byIl={};data.forEach(d=>{byIl[d._il||'?']=(byIl[d._il||'?']||0)+d._area/1e6;});const prov=Object.entries(byIl).sort((a,b)=>b[1]-a[1]).slice(0,12);
-  mkBar('cProv',prov.map(p=>p[0]),prov.map(p=>p[1]),'#2bb3a3',true);}
+  mkBar('cProv',prov.map(p=>p[0]),prov.map(p=>p[1]),'#2bb3a3',true);
+  // zaman serisi: yillara gore KUMULATIF uretim (kapsam = mevcut filtre)
+  const il=ilVal(),ilce=fIlce.value;
+  document.getElementById('cTsTitle').textContent='Yıllara göre kümülatif üretim — '+(ilce||il||'Türkiye')+' (GWh/yıl)';
+  const yMin=2010,yMax=2025,prod={};for(let y=yMin;y<=yMax;y++)prod[y]=0;
+  data.forEach(d=>{if(d._yr&&d._mwh)prod[d._yr]=(prod[d._yr]||0)+d._mwh;});
+  const labels=[],cum=[];let run=0;for(let y=yMin;y<=yMax;y++){run+=(prod[y]||0);labels.push(y);cum.push(+(run/1000).toFixed(1));}
+  mkLine('cTs',labels,cum,'#e8a33d');}
 
 /* ===== sekme + İl Detayı ===== */
 let mapIl=null,ilPoly=null,ilBound=null,ilClick=null,selHi=null,idData=[],ilceClick=null,ilPts=null,idCurIl=null;
@@ -345,4 +408,12 @@ document.getElementById('dlShp').onclick=async()=>{const fc=selFC();if(!fc.featu
 fetch('pv_polygons_energy.geojson').then(r=>{if(!r.ok)throw 0;return r.json();}).then(normalize)
  .catch(()=>fetch('pv_polygons_gsa.geojson').then(r=>{if(!r.ok)throw 0;return r.json();}).then(normalize)
  .catch(()=>alert('Veri yüklenemedi — http://localhost:8000 üzerinden açın.')));
+
+// choropleth pencere etkilesimleri
+(function(){
+  const head=document.getElementById('choroHead'),body=document.getElementById('choroBody'),caret=document.getElementById('choroCaret');
+  head.onclick=()=>{const open=body.style.display==='none';body.style.display=open?'block':'none';caret.textContent=open?'▾':'▸';};
+  document.getElementById('choroToggle').onchange=e=>{choroOn=e.target.checked;renderChoro();};
+  document.querySelectorAll('input[name="choroM"]').forEach(r=>r.onchange=e=>{if(e.target.checked){choroMetric=e.target.value;renderChoro();}});
+})();
 </script></body></html>
