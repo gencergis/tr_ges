@@ -187,7 +187,7 @@ const polyLayer=L.geoJSON(null,{style:f=>({color:SCOL[f.properties._src]||'#888'
 const aggLayer=L.layerGroup().addTo(map);
 const ilHi=L.geoJSON(null,{pane:'boundPane',style:{color:'#e8a33d',weight:3,fill:false}}).addTo(map);
 map.createPane('choroPane');map.getPane('choroPane').style.zIndex=250;
-let miniMapObj=null, miniLayer=null, miniMetric='uretim';
+let miniMapObj=null, miniLayer=null, miniMetric='uretim', choroMetric='uretim';
 function popupHtml(p){return '<b>ID '+p._id+'</b><br>Kaynak: '+(p._src||'-')+'<br>'+(p._il||'-')+' / '+(p._ilce||'-')+'<br>Alan: '+(p._area/1e4).toFixed(2)+' ha'+(p._yr?'<br>Kuruluş: '+p._yr:'')+(p._pv?'<br>PVOUT: '+p._pv:'')+(p._mwh?'<br>Üretim: '+p._mwh.toFixed(0)+' MWh/yıl':'');}
 
 function ringAreaM2(c){const R=6378137;let a=0,n=c.length;if(n<3)return 0;for(let i=0;i<n;i++){const p1=c[i],p2=c[(i+1)%n];a+=(p2[0]-p1[0])*Math.PI/180*(2+Math.sin(p1[1]*Math.PI/180)+Math.sin(p2[1]*Math.PI/180));}return Math.abs(a*R*R/2);}
@@ -264,6 +264,7 @@ function ilValues(){ // mevcut filtreye gore il -> deger
     m[il].sayi+=1;});                       // santral sayisi
   return m;}
 function renderMini(){
+ try{
   if(!IL_GEO){return;}
   if(!miniMapObj){
     miniMapObj=L.map('miniMap',{zoomControl:false,attributionControl:false,dragging:true,scrollWheelZoom:false}).setView([39.0,35.2],4.3);
@@ -289,7 +290,9 @@ function renderMini(){
   choroMetric=om;
   document.getElementById('miniBar').style.background='linear-gradient(90deg,'+grad+')';
   const unit=miniMetric==='uretim'?'GWh/yıl':miniMetric==='alan'?'km²':'santral';
-  document.getElementById('miniMax').textContent=(mx||0).toFixed(miniMetric==='uretim'?0:miniMetric==='alan'?1:0)+' '+unit;}
+  document.getElementById('miniMax').textContent=(mx||0).toFixed(miniMetric==='uretim'?0:miniMetric==='alan'?1:0)+' '+unit;
+ }catch(e){console.warn('mini harita:',e);}
+}
 
 function apply(){const data=current();renderAgg();
   document.getElementById('kpiN').textContent=data.length;
