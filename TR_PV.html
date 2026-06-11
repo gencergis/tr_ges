@@ -256,6 +256,13 @@ function choroColor(t){ // t: 0..1
   if(choroMetric==='alan')st.splice(0,5,[14,23,38],[27,94,77],[43,179,163],[150,210,120],[245,245,210]);
   t=Math.max(0,Math.min(1,t));const f=t*(st.length-1),i=Math.floor(f),r=f-i,a=st[i],b=st[Math.min(i+1,st.length-1)];
   return 'rgb('+((a[0]+(b[0]-a[0])*r)|0)+','+((a[1]+(b[1]-a[1])*r)|0)+','+((a[2]+(b[2]-a[2])*r)|0)+')';}
+function ilValuesAll(){ // TUM veri (filtre bagimsiz) - mini harita
+  const m={};
+  ALL.forEach(d=>{const il=d._il||'?';if(!m[il])m[il]={uretim:0,alan:0,sayi:0};
+    m[il].uretim+=(d._mwh||0)/1000;
+    m[il].alan+=d._area/1e6;
+    m[il].sayi+=1;});
+  return m;}
 function ilValues(){ // mevcut filtreye gore il -> deger
   const data=current(),m={};
   data.forEach(d=>{const il=d._il||'?';if(!m[il])m[il]={uretim:0,alan:0,sayi:0};
@@ -268,14 +275,15 @@ function renderMini(){
   if(!IL_GEO){return;}
   if(!miniMapObj){
     miniMapObj=L.map('miniMap',{zoomControl:false,attributionControl:false,dragging:true,scrollWheelZoom:false}).setView([39.0,35.2],4.3);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:12}).addTo(miniMapObj);
   }
   if(miniLayer){miniMapObj.removeLayer(miniLayer);miniLayer=null;}
-  const vals=ilValues();let mx=0;for(const il in vals)mx=Math.max(mx,(vals[il]||{})[miniMetric]||0);
+  const vals=ilValuesAll();let mx=0;for(const il in vals)mx=Math.max(mx,(vals[il]||{})[miniMetric]||0);
   if(mx<=0)mx=1;
   const oldM=choroMetric; choroMetric=miniMetric;  // choroColor metrik renk paleti icin
   miniLayer=L.geoJSON(IL_GEO,{style:f=>{
     const v=(vals[f.properties.il]||{})[miniMetric]||0;
-    return {color:'#0b1a2a',weight:.5,fillColor:choroColor(v/mx),fillOpacity:v>0?0.85:0.15};},
+    return {color:'#e8eef4',weight:.7,fillColor:v>0?choroColor(v/mx):'#3a4a5c',fillOpacity:v>0?0.85:0.55};},
     onEachFeature:(f,l)=>{const v=(vals[f.properties.il]||{})[miniMetric]||0;
       const lab=miniMetric==='uretim'?(v.toFixed(1)+' GWh/yıl'):miniMetric==='alan'?(v.toFixed(2)+' km²'):(Math.round(v)+' santral');
       l.bindTooltip('<b>'+f.properties.il+'</b><br>'+lab,{sticky:true});
